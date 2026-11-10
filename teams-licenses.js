@@ -175,10 +175,9 @@ async function loadTeamsFromSupabase(){
   try{
     const {data,error}=await supabaseClient.from('teams').select('*').order('id',{ascending:true});
     if(error)throw error;
-    if(Array.isArray(data)&&data.length){
-      embeddedTeamsData=data.map(dbTeamToAppTeam);
-      saveTeamsToStorage();
-    }
+    // Supabase manda: si no hay equipos, la lista queda vacía (no se recuperan los antiguos).
+    embeddedTeamsData=Array.isArray(data)?data.map(dbTeamToAppTeam):[];
+    saveTeamsToStorage();
     return true;
   }catch(e){
     console.warn('No se pudieron cargar equipos desde Supabase:',e.message);
@@ -192,9 +191,10 @@ async function saveTeamToSupabase(team){
   saveTeamsToStorage();
 }
 async function deleteTeamFromSupabase(id){
-  const {error}=await supabaseClient.from('teams').delete().eq('id',Number(id));
+  const {data,error}=await supabaseClient.from('teams').delete().eq('id',Number(id)).select('id');
   if(error)throw error;
-  saveTeamsToStorage();
+  // Si los permisos (RLS) no dejan borrar, Supabase no da error pero no borra nada.
+  if(!data||!data.length)throw new Error('Supabase no ha borrado el equipo (revisa los permisos de administrador).');
 }
 
 /* Registro de licencias: lo que ha pedido cada piloto, la licencia que se le asignó y si le llegó el email.
@@ -544,7 +544,7 @@ async function adminSaveTeam(){
   }
 }
 
-async function adminDeleteTeam(id){if(!confirm('¿Borrar equipo?'))return;embeddedTeamsData=embeddedTeamsData.filter(t=>Number(t.id)!==Number(id));try{await deleteTeamFromSupabase(id);renderTeamsGallery();toast('Equipo borrado de Supabase.');await adminTeams()}catch(e){saveTeamsToStorage();renderTeamsGallery();toast('No se pudo borrar en Supabase: '+e.message);await adminTeams()}}
+async function adminDeleteTeam(id){if(!confirm('¿Borrar equipo?'))return;try{await deleteTeamFromSupabase(id);embeddedTeamsData=embeddedTeamsData.filter(t=>Number(t.id)!==Number(id));saveTeamsToStorage();renderTeamsGallery();toast('Equipo borrado de Supabase.');await adminTeams()}catch(e){toast('No se pudo borrar en Supabase: '+e.message)}}
 function adminResetTeams(){if(!confirm('¿Restaurar los equipos originales del HTML? Se perderán los cambios locales.'))return;localStorage.removeItem('acc_embedded_teams');location.reload()}
 function adminExportTeams(){const box=$('admTeamsExport');box.classList.remove('hidden');box.innerHTML=`<b>JSON de equipos:</b><textarea readonly style="margin-top:10px;min-height:260px">${JSON.stringify(embeddedTeamsData,null,2).replace(/</g,'&lt;')}</textarea>`}
 
