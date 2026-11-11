@@ -419,7 +419,9 @@ const SR_CLASSES=[
 ];
 // Color para pintar sobre fondo oscuro (el negro de Pro no se vería): Pro usa dorado.
 const srRing=c=>c.key==='PRO'?'#ffd166':c.color;
-const SR_RULES={start:2.5,max:4.99,promote:4.0,demote:1.0,finish:0.5,ab:-0.4,np:-0.8};
+const SR_RULES={start:2.5,max:4.99,promote:4.0,demote:1.0,finish:0.5,ab:-0.4,np:-0.8,
+  // Reinicio general del SR: todo lo anterior a esta fecha no cuenta (todos empiezan en Rookie · 2.50).
+  resetAt:Date.parse('2026-11-11T18:25:00+01:00')};
 const SR_LAST=SR_CLASSES.length-1;
 
 function licBadge(cls,sr,size){
@@ -442,7 +444,11 @@ function srCompute(entries){
   let cls=0,sr=SR_RULES.start;
   const stats={finished:0,ab:0,np:0,adjustments:0,promotions:0,demotions:0};
   const timeline=[];
+  let count=0;
   for(const e of entries){
+    // Anterior al reinicio: se conserva en el historial de carreras pero sin efecto en el SR.
+    if(e.date<SR_RULES.resetAt){timeline.push({...e,delta:0,preReset:true,clsBefore:0,srBefore:SR_RULES.start,clsAfter:0,srAfter:SR_RULES.start,change:null});continue}
+    count++;
     const delta=srDelta(e);
     const clsBefore=cls,srBefore=sr;
     let next=round2(sr+delta),change=null;
@@ -453,7 +459,7 @@ function srCompute(entries){
     if(e.kind==='adjust')stats.adjustments++;else if(e.outcome==='finish')stats.finished++;else if(e.outcome==='ab')stats.ab++;else stats.np++;
     timeline.push({...e,delta,clsBefore,srBefore,clsAfter:cls,srAfter:sr,change});
   }
-  return {cls,sr,timeline,stats,count:entries.length};
+  return {cls,sr,timeline,stats,count};
 }
 
 let srCache={at:0,data:null,results:null};
@@ -555,8 +561,9 @@ function srLadder(cls){
   return `<div class="sr-ladder">${SR_CLASSES.map((c,i)=>`<div class="sr-step${i===cls?' current':''}${i<cls?' done':''}" style="--lic:${c.color};--lic-ink:${c.ink}"><b>${c.key}</b><small>${c.name}</small></div>`).join('')}</div>`;
 }
 function srTimelineRows(res){
-  if(!res.timeline.length)return `<tr><td colspan="5" class="empty">Todavía no hay pruebas puntuables. Cuando termines tu primera prueba aparecerá aquí.</td></tr>`;
-  return [...res.timeline].reverse().map(t=>{
+  const rows=res.timeline.filter(t=>!t.preReset);
+  if(!rows.length)return `<tr><td colspan="5" class="empty">Todavía no hay pruebas puntuables. Cuando termines tu primera prueba aparecerá aquí.</td></tr>`;
+  return rows.reverse().map(t=>{
     const label=t.kind==='adjust'?`<span class="chip adj">Ajuste</span>`:t.outcome==='finish'?`<span class="chip ok">Terminada</span>`:t.outcome==='ab'?`<span class="chip bad">Abandono</span>`:`<span class="chip bad">No presentado</span>`;
     const change=t.change==='up'?`<span class="chip up">⬆ Ascenso a ${SR_CLASSES[t.clsAfter].name}</span>`:t.change==='down'?`<span class="chip down">⬇ Descenso a ${SR_CLASSES[t.clsAfter].name}</span>`:'';
     return `<tr><td data-label="Fecha">${escHtml(shortDate(t.date))}</td>

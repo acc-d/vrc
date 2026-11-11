@@ -310,7 +310,7 @@ async function renderMyRaces(){
     return `<div class="race-row">
       <div class="race-date"><b>${escHtml(shortDate(t.date))}</b></div>
       <div class="race-main"><b>${escHtml(t.name)}</b><small>${escHtml(t.meta||'')}</small></div>
-      <div class="race-side">${t.pending?'<span class="chip">Resultados pendientes</span>':`<span class="race-result"><small>General</small><b>${escHtml(t.general||'-')}</b></span><span class="race-result"><small>Categoría</small><b>${escHtml(t.category||'-')}</b></span><span class="chip ${cls}">${label}</span><span class="race-sr ${t.delta>=0?'pos':'neg'}">${fmtSigned(t.delta)} SR</span>`}</div>
+      <div class="race-side">${t.pending?'<span class="chip">Resultados pendientes</span>':`<span class="race-result"><small>General</small><b>${escHtml(t.general||'-')}</b></span><span class="race-result"><small>Categoría</small><b>${escHtml(t.category||'-')}</b></span><span class="chip ${cls}">${label}</span>${t.preReset?'':`<span class="race-sr ${t.delta>=0?'pos':'neg'}">${fmtSigned(t.delta)} SR</span>`}`}</div>
     </div>`;
   }).join('');
   const finished=done.filter(t=>t.outcome==='finish').length;
